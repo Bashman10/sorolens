@@ -254,6 +254,10 @@ func New(h *handler.Handler, maxBodyBytes int64) http.Handler {
 		get("/contracts/{id}/invocations", h.ListInvocations)
 		// Global invocation explorer: resource usage across every contract.
 		get("/invocations", h.ListAllInvocations)
+
+		// Cross-contract call graph. Rooted at the invocations row for the
+		// transaction, so a trace is reachable straight from an invocation.
+		get("/invocations/{tx_hash}/trace", h.GetInvocationTrace)
 		get("/contracts/{id}/storage", h.ListStorageEntries)
 		get("/contracts/{id}/stats", h.ContractStats)
 		get("/contracts/{id}/forecast", h.ContractForecast)
@@ -343,6 +347,10 @@ func New(h *handler.Handler, maxBodyBytes int64) http.Handler {
 		r.With(scope, contributor).Post("/watchdog/subscriptions", h.CreateSubscription)
 		r.With(scope, contributor).Get("/watchdog/subscriptions", h.ListSubscriptions)
 		r.With(scope, contributor).Delete("/watchdog/subscriptions/{id}", h.DeleteSubscription)
+		// Signing-secret reveal/rotate touch signing key material, so they are
+		// admin-gated on top of the scope check.
+		r.With(scope, admin).Get("/watchdog/subscriptions/{id}/signing-secret", h.GetSubscriptionSigningSecret)
+		r.With(scope, admin).Post("/watchdog/subscriptions/{id}/rotate", h.RotateSubscriptionSigningSecret)
 	})
 
 	// API v2 (issue #144). A parallel namespace carrying the same resources

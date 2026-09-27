@@ -323,6 +323,53 @@ func (s *postgresStore) BatchInsertInvocations(ctx context.Context, invocations 
 	return nil
 }
 
+// ---- cross-contract call graph ---------------------------------------------
+
+// queueCallEdges appends the INSERT for each edge to a batch. Duplicates are
+// ignored by primary key (tx_hash, child_span_id), which is what makes both a
+// re-index of the same ledger and a backfill run idempotent.
+func queueCallEdges(batch *pgx.Batch, edges []CallEdge) {
+	for _, e := range edges {
+		batch.Queue(`
+			INSERT INTO call_edges
+				(tx_hash, parent_span_id, child_span_id, callee_contract_id, function_name,
+				 cpu, mem, fee_share, depth, network, ledger, ledger_closed_at, inserted_at)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+			ON CONFLICT (tx_hash, child_span_id) DO NOTHING`,
+			e.TxHash, e.ParentSpanID, e.ChildSpanID, nullIfEmpty(e.CalleeContractID), nullIfEmpty(e.FunctionName),
+			e.CPU, e.Mem, e.FeeShare, e.Depth, networkOrDefault(e.Network), e.Ledger, e.LedgerClosedAt, time.Now(),
+		)
+	}
+}
+
+// nullIfEmpty stores an empty string as SQL NULL, so "no callee contract" and
+// "unknown function" are distinguishable from an empty identifier.
+func nullIfEmpty(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// BatchInsertCallEdges inserts cross-contract call graph edges, ignoring
+// duplicates by primary key.
+func (s *postgresStore) BatchInsertCallEdges(ctx context.Context, edges []CallEdge) error {
+	if len(edges) == 0 {
+		return nil
+	}
+	batch := &pgx.Batch{}
+	queueCallEdges(batch, edges)
+
+	br := s.pool.SendBatch(ctx, batch)
+	defer br.Close()
+	for range edges {
+		if _, err := br.Exec(); err != nil {
+			return fmt.Errorf("batch insert call edges: %w", err)
+		}
+	}
+	return nil
+}
+
 // ---- storage entries ------------------------------------------------------
 
 // UpsertStorageEntries inserts or updates multiple storage entries in a single batch operation. It uses the contract_id and key_xdr as the unique constraint for upserting.
@@ -446,7 +493,7 @@ func (s *postgresStore) SetIndexerCursor(ctx context.Context, network string, le
 
 // BatchInsertWithCursor atomically writes events, invocations, contract sync state,
 // and advances the network indexer cursor within a single database transaction.
-func (s *postgresStore) BatchInsertWithCursor(ctx context.Context, network string, ledger uint32, events []Event, invocations []Invocation, syncState SyncState) error {
+func (s *postgresStore) BatchInsertWithCursor(ctx context.Context, network string, ledger uint32, events []Event, invocations []Invocation, callEdges []CallEdge, syncState SyncState) error {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -495,6 +542,8 @@ func (s *postgresStore) BatchInsertWithCursor(ctx context.Context, network strin
 		)
 	}
 
+	queueCallEdges(batch, callEdges)
+
 	if syncState.ContractID != "" {
 		batch.Queue(`
 			INSERT INTO sync_state (contract_id, last_ledger, last_run_at, error_message, updated_at)
@@ -518,7 +567,7 @@ func (s *postgresStore) BatchInsertWithCursor(ctx context.Context, network strin
 	)
 
 	br := tx.SendBatch(ctx, batch)
-	totalQueued := len(events) + len(invocations)
+	totalQueued := len(events) + len(invocations) + len(callEdges)
 	if syncState.ContractID != "" {
 		totalQueued++
 	}

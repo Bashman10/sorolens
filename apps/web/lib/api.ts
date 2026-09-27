@@ -42,6 +42,7 @@ import type {
   GroupStats,
   ContractVerification,
   LabelResolution,
+  TraceResponse,
   RulesResponse,
   AlertRule,
   CreateRuleRequest,
@@ -757,6 +758,18 @@ export function removeContractFromGroup(
       method: "DELETE",
       headers: { "X-User-ID": userId },
     }
+  );
+}
+
+// ---- invocation trace ------------------------------------------------------
+
+/**
+ * Cross-contract call tree for a transaction, materialised by the indexer from
+ * the Soroban host diagnostic events. Backs the flame-graph view.
+ */
+export function getInvocationTrace(txHash: string): Promise<TraceResponse> {
+  return fetchJson<TraceResponse>(
+    `${API_URL}/api/v1/invocations/${txHash}/trace`
   );
 }
 

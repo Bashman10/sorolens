@@ -15,6 +15,7 @@ type MockStore struct {
 	contracts             map[string]Contract
 	events                []Event
 	invocations           []Invocation
+	callEdges             []CallEdge
 	storageEntries        []StorageEntry
 	syncStates            map[string]SyncState
 	globalStats           GlobalStats
@@ -50,6 +51,8 @@ type MockStore struct {
 	GetGlobalStatsErr           error
 	ListEventsErr               error
 	ListInvocationsErr          error
+	GetInvocationErr            error
+	GetCallEdgesErr             error
 	ListStorageErr              error
 	GetContractStatsErr         error
 	RecentEventsErr             error
@@ -308,6 +311,10 @@ func (m *MockStore) BatchInsertInvocations(_ context.Context, invocations []Invo
 	return nil
 }
 
+func (m *MockStore) BatchInsertCallEdges(_ context.Context, edges []CallEdge) error {
+	m.callEdges = append(m.callEdges, edges...)
+	return nil
+}
 func (m *MockStore) UpsertStorageEntries(_ context.Context, entries []StorageEntry) error {
 	m.storageEntries = append(m.storageEntries, entries...)
 	return nil
@@ -362,11 +369,14 @@ func (m *MockStore) SetIndexerCursor(_ context.Context, network string, ledger u
 	return nil
 }
 
-func (m *MockStore) BatchInsertWithCursor(ctx context.Context, network string, ledger uint32, events []Event, invocations []Invocation, syncState SyncState) error {
+func (m *MockStore) BatchInsertWithCursor(ctx context.Context, network string, ledger uint32, events []Event, invocations []Invocation, callEdges []CallEdge, syncState SyncState) error {
 	if err := m.BatchInsertEvents(ctx, events); err != nil {
 		return err
 	}
 	if err := m.BatchInsertInvocations(ctx, invocations); err != nil {
+		return err
+	}
+	if err := m.BatchInsertCallEdges(ctx, callEdges); err != nil {
 		return err
 	}
 	if syncState.ContractID != "" {
@@ -503,6 +513,40 @@ func (m *MockStore) ListInvocations(_ context.Context, contractID, cursor string
 		out = out[:limit]
 	}
 	return out, nextCursor, nil
+}
+
+// GetInvocation returns the invocation row for a transaction hash.
+func (m *MockStore) GetInvocation(_ context.Context, txHash string) (Invocation, error) {
+	if m.GetInvocationErr != nil {
+		return Invocation{}, m.GetInvocationErr
+	}
+	for _, inv := range m.invocations {
+		if inv.TxHash == txHash {
+			return inv, nil
+		}
+	}
+	return Invocation{}, ErrNotFound
+}
+
+// GetCallEdges returns the call graph edges of a transaction, ordered by span id
+// so parents precede children.
+func (m *MockStore) GetCallEdges(_ context.Context, txHash string) ([]CallEdge, error) {
+	if m.GetCallEdgesErr != nil {
+		return nil, m.GetCallEdgesErr
+	}
+	var out []CallEdge
+	for _, e := range m.callEdges {
+		if e.TxHash == txHash {
+			out = append(out, e)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ChildSpanID < out[j].ChildSpanID })
+	return out, nil
+}
+
+// AddCallEdge is a test helper that seeds a call graph edge directly.
+func (m *MockStore) AddCallEdge(e CallEdge) {
+	m.callEdges = append(m.callEdges, e)
 }
 
 func (m *MockStore) ListAllInvocations(_ context.Context, cursorLedger uint32, cursorTxHash string, limit int, f InvocationFilters) ([]Invocation, uint32, string, error) {
@@ -940,6 +984,27 @@ func (m *MockStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
+func (m *MockStore) GetSubscription(_ context.Context, id string) (AlertSubscription, error) {
+	for _, s := range m.alertSubscriptions {
+		if s.ID == id {
+			return s, nil
+		}
+	}
+	return AlertSubscription{}, ErrNotFound
+}
+
+func (m *MockStore) RotateSigningSecret(_ context.Context, id, secret, hash string, rotatedAt time.Time) error {
+	for i := range m.alertSubscriptions {
+		if m.alertSubscriptions[i].ID == id {
+			m.alertSubscriptions[i].SigningSecret = secret
+			m.alertSubscriptions[i].SigningSecretHash = hash
+			m.alertSubscriptions[i].SigningSecretRotatedAt = &rotatedAt
+			m.alertSubscriptions[i].UpdatedAt = rotatedAt
+			return nil
+		}
+	}
+	return ErrNotFound
+}
 func (m *MockStore) ListAll(_ context.Context) ([]AlertSubscription, error) {
 	out := make([]AlertSubscription, len(m.alertSubscriptions))
 	copy(out, m.alertSubscriptions)

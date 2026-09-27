@@ -56,6 +56,29 @@ type Invocation struct {
 	InsertedAt         time.Time
 }
 
+// CallEdge is one parent -> child invocation edge of a transaction's
+// cross-contract call graph. The indexer materialises these from the Soroban
+// host diagnostic event stream (fn_call / fn_return / core_metrics).
+//
+// The transaction's root invocation is deliberately not an edge: it already
+// lives in the invocations table (tx_hash PRIMARY KEY). Span ids are
+// deterministic call-path strings ("0", "0.0", "0.1", "0.0.0", ...).
+type CallEdge struct {
+	TxHash           string
+	ParentSpanID     string
+	ChildSpanID      string
+	CalleeContractID string
+	FunctionName     string
+	CPU              int64
+	Mem              int64
+	FeeShare         int64
+	Depth            int
+	Network          string
+	Ledger           uint32
+	LedgerClosedAt   time.Time
+	InsertedAt       time.Time
+}
+
 // FunctionMatch is one distinct contract function name matched by the
 // global search endpoint (issue #159), paired with its most recently
 // recorded invocation so callers can link straight to that transaction.
@@ -117,12 +140,26 @@ type AlertSubscription struct {
 	ContractID     string
 	WebhookURL     string
 	SeverityFilter string
+
 	// ChannelType is webhook | slack | discord | pagerduty (issue #127).
 	ChannelType string
 	// RoutingKey is the PagerDuty integration key (pagerduty only). Secret.
 	RoutingKey string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+
+	// SigningSecret is the recoverable "whsec_..." key deliveries are signed
+	// with. HMAC signing needs the raw key, so it is stored (not one-way
+	// hashed); access is confined to the reveal/rotate endpoints and the
+	// delivery worker.
+	SigningSecret string
+	// SigningSecretHash is the SHA-256 hex digest of SigningSecret.
+	SigningSecretHash string
+	// SigningSecretCreatedAt starts the window during which the secret may be
+	// revealed; SigningSecretRotatedAt re-opens it on rotation.
+	SigningSecretCreatedAt time.Time
+	SigningSecretRotatedAt *time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 // Role names for role-based access control.
