@@ -1152,3 +1152,74 @@ func (m *MockStore) SearchContracts(_ context.Context, query string, limit int) 
 
 	return results, nil
 }
+
+// SearchEvents implements store.Store.SearchEvents (issue #159), mirroring
+// the postgresStore semantics: matches are deduplicated to the newest event
+// per tx_hash, then sorted newest-first before the limit is applied.
+func (m *MockStore) SearchEvents(_ context.Context, query string, limit int) ([]Event, error) {
+	if query == "" {
+		return []Event{}, nil
+	}
+	searchPattern := strings.ToLower(query)
+
+	best := make(map[string]Event)
+	for _, e := range m.events {
+		if !strings.Contains(strings.ToLower(e.TxHash), searchPattern) {
+			continue
+		}
+		if cur, ok := best[e.TxHash]; !ok || e.LedgerClosedAt.After(cur.LedgerClosedAt) {
+			best[e.TxHash] = e
+		}
+	}
+
+	matched := make([]Event, 0, len(best))
+	for _, e := range best {
+		matched = append(matched, e)
+	}
+	sort.Slice(matched, func(i, j int) bool {
+		return matched[i].LedgerClosedAt.After(matched[j].LedgerClosedAt)
+	})
+	if limit > 0 && len(matched) > limit {
+		matched = matched[:limit]
+	}
+	return matched, nil
+}
+
+// SearchFunctions implements store.Store.SearchFunctions (issue #159),
+// mirroring the postgresStore semantics: matches are deduplicated to the
+// most recent invocation per function name, then sorted newest-first
+// before the limit is applied.
+func (m *MockStore) SearchFunctions(_ context.Context, query string, limit int) ([]FunctionMatch, error) {
+	if query == "" {
+		return []FunctionMatch{}, nil
+	}
+	searchPattern := strings.ToLower(query)
+
+	best := make(map[string]Invocation)
+	for _, inv := range m.invocations {
+		if !strings.Contains(strings.ToLower(inv.FunctionName), searchPattern) {
+			continue
+		}
+		if cur, ok := best[inv.FunctionName]; !ok || inv.LedgerClosedAt.After(cur.LedgerClosedAt) {
+			best[inv.FunctionName] = inv
+		}
+	}
+
+	matched := make([]FunctionMatch, 0, len(best))
+	for name, inv := range best {
+		matched = append(matched, FunctionMatch{
+			Name:           name,
+			ContractID:     inv.ContractID,
+			Network:        inv.Network,
+			TxHash:         inv.TxHash,
+			LedgerClosedAt: inv.LedgerClosedAt,
+		})
+	}
+	sort.Slice(matched, func(i, j int) bool {
+		return matched[i].LedgerClosedAt.After(matched[j].LedgerClosedAt)
+	})
+	if limit > 0 && len(matched) > limit {
+		matched = matched[:limit]
+	}
+	return matched, nil
+}
