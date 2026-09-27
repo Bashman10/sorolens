@@ -41,6 +41,7 @@ type MockStore struct {
 	contractSpecs         map[string]ContractSpec
 	contractVerifications map[string]ContractVerification
 	alertRules            []AlertRule
+	contractNotes         map[string][]ContractNote
 
 	// Error injection
 	UpsertContractErr           error
