@@ -11,7 +11,9 @@ describe("escapeHtml", () => {
 
 describe("safeUrl", () => {
   it("allows http, https, mailto and relative links", () => {
-    expect(safeUrl("https://example.com/a?b=1")).toBe("https://example.com/a?b=1");
+    expect(safeUrl("https://example.com/a?b=1")).toBe(
+      "https://example.com/a?b=1"
+    );
     expect(safeUrl("http://example.com")).toBe("http://example.com");
     expect(safeUrl("mailto:ops@example.com")).toBe("mailto:ops@example.com");
     expect(safeUrl("/contracts")).toBe("/contracts");
@@ -40,7 +42,9 @@ describe("renderMarkdown", () => {
   it("renders headings, lists, quotes and rules", () => {
     expect(renderMarkdown("# Title")).toBe("<h1>Title</h1>");
     expect(renderMarkdown("### Deep")).toBe("<h3>Deep</h3>");
-    expect(renderMarkdown("- one\n- two")).toBe("<ul>\n<li>one</li>\n<li>two</li>\n</ul>");
+    expect(renderMarkdown("- one\n- two")).toBe(
+      "<ul>\n<li>one</li>\n<li>two</li>\n</ul>"
+    );
     expect(renderMarkdown("1. one\n2. two")).toBe(
       "<ol>\n<li>one</li>\n<li>two</li>\n</ol>"
     );
@@ -51,7 +55,9 @@ describe("renderMarkdown", () => {
   it("renders paragraphs and line breaks", () => {
     expect(renderMarkdown("plain text")).toBe("<p>plain text</p>");
     expect(renderMarkdown("one\ntwo")).toBe("<p>one<br />two</p>");
-    expect(renderMarkdown("first\n\nsecond")).toBe("<p>first</p>\n<p>second</p>");
+    expect(renderMarkdown("first\n\nsecond")).toBe(
+      "<p>first</p>\n<p>second</p>"
+    );
   });
 
   it("renders emphasis and inline code", () => {
@@ -92,7 +98,9 @@ describe("renderMarkdown", () => {
 
   it("escapes HTML inside code spans and code blocks", () => {
     expect(renderMarkdown("`<b>x</b>`")).toContain("&lt;b&gt;x&lt;/b&gt;");
-    expect(renderMarkdown("```\n<b>x</b>\n```")).toContain("&lt;b&gt;x&lt;/b&gt;");
+    expect(renderMarkdown("```\n<b>x</b>\n```")).toContain(
+      "&lt;b&gt;x&lt;/b&gt;"
+    );
   });
 
   it("renders allowed links with a hardened rel", () => {
@@ -110,7 +118,9 @@ describe("renderMarkdown", () => {
   });
 
   it("cannot be broken out of through the link target", () => {
-    const html = renderMarkdown('[x](https://example.com" onmouseover="alert(1))');
+    const html = renderMarkdown(
+      '[x](https://example.com" onmouseover="alert(1))'
+    );
     expect(html).not.toContain('onmouseover="alert(1)"');
     expect(html).toContain("&quot;");
   });

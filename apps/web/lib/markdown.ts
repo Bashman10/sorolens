@@ -50,7 +50,8 @@ export function safeUrl(raw: string): string | null {
 
 // BLOCK_START matches a line that begins a block-level construct, which is how
 // a paragraph knows where to stop.
-const BLOCK_START = /^\s*(```|#{1,6}\s|[-*+]\s|\d+[.)]\s|>|-{3,}\s*$|\*{3,}\s*$|_{3,}\s*$)/;
+const BLOCK_START =
+  /^\s*(```|#{1,6}\s|[-*+]\s|\d+[.)]\s|>|-{3,}\s*$|\*{3,}\s*$|_{3,}\s*$)/;
 
 /** renderInline applies the inline rules to one span of text. */
 function renderInline(source: string): string {
@@ -178,7 +179,11 @@ export function renderMarkdown(source: string): string {
     // Paragraph: run on until a blank line or the next block-level construct.
     const paragraph = [line];
     i += 1;
-    while (i < lines.length && !/^\s*$/.test(lines[i]) && !BLOCK_START.test(lines[i])) {
+    while (
+      i < lines.length &&
+      !/^\s*$/.test(lines[i]) &&
+      !BLOCK_START.test(lines[i])
+    ) {
       paragraph.push(lines[i]);
       i += 1;
     }

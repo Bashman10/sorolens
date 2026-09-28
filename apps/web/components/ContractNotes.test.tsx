@@ -27,7 +27,7 @@ function renderNotes(notes: ContractNote[], currentUserId = AUTHOR) {
     onUpdate: vi.fn(),
     onDelete: vi.fn(),
   };
-  render(
+  const view = render(
     <ContractNotes
       notes={notes}
       currentUserId={currentUserId}
@@ -36,7 +36,7 @@ function renderNotes(notes: ContractNote[], currentUserId = AUTHOR) {
       onDelete={handlers.onDelete}
     />
   );
-  return handlers;
+  return { ...handlers, container: view.container };
 }
 
 describe("ContractNotes", () => {
@@ -65,7 +65,9 @@ describe("ContractNotes", () => {
     ]);
 
     expect(container.querySelector("script")).toBeNull();
-    expect(screen.getByTestId("note-body").innerHTML).toContain("&lt;script&gt;");
+    expect(screen.getByTestId("note-body").innerHTML).toContain(
+      "&lt;script&gt;"
+    );
   });
 
   it("offers edit and delete only on the viewer's own notes", () => {
@@ -92,7 +94,9 @@ describe("ContractNotes", () => {
 
     expect(onCreate).toHaveBeenCalledWith("## Migration\n\nMoved from v1.");
     // The composer is cleared so the next note starts blank.
-    expect((screen.getByTestId("note-input") as HTMLTextAreaElement).value).toBe("");
+    expect(
+      (screen.getByTestId("note-input") as HTMLTextAreaElement).value
+    ).toBe("");
   });
 
   it("rejects an empty composer without calling the API", () => {

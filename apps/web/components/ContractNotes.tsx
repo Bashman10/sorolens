@@ -124,7 +124,9 @@ export function ContractNotes({
       </div>
 
       {loading ? (
-        <p className="text-sm text-[var(--color-text-secondary)]">Loading notes…</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">
+          Loading notes…
+        </p>
       ) : notes.length === 0 ? (
         <p className="text-sm text-[var(--color-text-secondary)]">
           No notes yet. Institutional knowledge starts with the first one.
@@ -132,7 +134,8 @@ export function ContractNotes({
       ) : (
         <ul className="space-y-3">
           {notes.map((note) => {
-            const isAuthor = currentUserId !== "" && note.author === currentUserId;
+            const isAuthor =
+              currentUserId !== "" && note.author === currentUserId;
             const isEditing = editingId === note.id;
             return (
               <li
@@ -219,7 +222,9 @@ export function ContractNotes({
                   <div
                     data-testid="note-body"
                     className="text-sm leading-relaxed text-[var(--color-text-primary)] [&_a]:text-[var(--color-accent)] [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:border-[var(--color-border)] [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-black/40 [&_code]:px-1 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_h3]:mb-1 [&_h3]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-black/40 [&_pre]:p-3"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdown(note.body) }}
+                    dangerouslySetInnerHTML={{
+                      __html: renderMarkdown(note.body),
+                    }}
                   />
                 )}
               </li>
