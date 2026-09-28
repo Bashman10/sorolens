@@ -42,6 +42,7 @@ import { SnapshotPanel } from "@/components/SnapshotPanel";
 import { HealthScoreCard } from "@/components/HealthScoreCard";
 import { AddToGroup } from "@/components/AddToGroup";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { CallTracePanel } from "@/components/CallTracePanel";
 import { useEventStream } from "@/hooks/useEventStream";
 
 interface Props {
@@ -479,6 +480,11 @@ function ContractDetailContent({ id }: { id: string }) {
             hasMore={eventsHasMore}
           />
         )}
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-4 text-xl font-semibold">Call trace</h2>
+        <CallTracePanel initialTxHash={events[0]?.tx_hash} />
       </section>
 
       <section className="mb-8">
